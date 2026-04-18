@@ -13,3 +13,20 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Theme-aware hover for icon buttons */
+.hover-surface {
+  transition: background-color 120ms ease;
+}
+.hover-surface:hover {
+  background-color: var(--surface-hover);
+}
+
+/* Danger variant for destructive icon buttons */
+.hover-danger {
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.hover-danger:hover {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}

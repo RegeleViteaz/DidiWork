@@ -3,7 +3,7 @@ import {
   Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight,
   Image as ImageIcon, FolderPlus, Folder, Upload, Layers,
   Star, StarOff, ArrowUp, Eye, EyeOff, CheckSquare, Square,
-  FileText, AlignLeft,
+  FileText, AlignLeft, Sun, Moon,
 } from 'lucide-react';
 
 // ═════════════════════════════════════════════════════════
@@ -158,8 +158,87 @@ const progressTone = (pct) => {
   if (pct === 100) return { bar: '#4a6b3a', text: '#4a6b3a' };
   if (pct >= 67)   return { bar: '#7a8a3e', text: '#5e6b2f' };
   if (pct >= 34)   return { bar: '#c7963b', text: '#8a6724' };
-  if (pct > 0)     return { bar: '#b56548', text: '#8a4b33' };
-  return { bar: '#d9d4c7', text: '#7a7566' };
+  if (pct > 0)     return { bar: '#b56548', text: 'var(--danger)' };
+  return { bar: 'var(--border)', text: 'var(--mute)' };
+};
+
+// ─── THEMES ──────────────────────────────────────────────
+// Implemented as CSS custom properties on a wrapper element.
+// This keeps all existing inline styles untouched; we swap the variable
+// values based on the active theme. Each inline `color`, `background`, etc.
+// will be rewritten to reference var(--x) below.
+const THEMES = {
+  light: {
+    '--bg': '#f6f3ea',
+    '--bg-grid': '#e4dfcf',
+    '--surface': '#fdfaf1',
+    '--surface-alt': '#faf7ec',
+    '--surface-hover': '#efeadb',
+    '--ink': '#1c1c1c',
+    '--ink-invert': '#f6f3ea',
+    '--ink-on-dark': '#f6f3ea',
+    '--mute': '#7a7566',
+    '--mute-soft': '#8a8472',
+    '--mute-extra': '#a09a85',
+    '--border': '#d8d2bf',
+    '--border-soft': '#e4dfcf',
+    '--border-faint': '#efeadb',
+    '--dash': '#b8b19a',
+    '--input-bg': '#f6f3ea',
+    '--input-border': '#b8b19a',
+    '--danger': '#8a4b33',
+    '--danger-bg': '#f0e4d8',
+    '--danger-border': '#c7956b',
+    '--danger-ink': '#5a3a1e',
+    '--success': '#4a6b3a',
+    '--success-soft': '#7a8a3e',
+    '--nav-overlay': 'rgba(246, 243, 234, 0.97)',
+    '--modal-overlay': 'rgba(28, 28, 28, 0.5)',
+    '--accent-active': '#1c1c1c',
+    '--accent-active-ink': '#f6f3ea',
+    '--accent-active-hover': '#2a2a2a',
+    '--accent-active-divider': '#3a3a3a',
+  },
+  dark: {
+    '--bg': '#1f1b15',
+    '--bg-grid': '#2d2720',
+    '--surface': '#2a2520',
+    '--surface-alt': '#322c25',
+    '--surface-hover': '#3a342c',
+    '--ink': '#ece4d2',
+    '--ink-invert': '#1f1b15',
+    '--ink-on-dark': '#ece4d2',
+    '--mute': '#9a9383',
+    '--mute-soft': '#807967',
+    '--mute-extra': '#6b6555',
+    '--border': '#4a4238',
+    '--border-soft': '#3a3329',
+    '--border-faint': '#2f2921',
+    '--dash': '#5c5347',
+    '--input-bg': '#1f1b15',
+    '--input-border': '#5c5347',
+    '--danger': '#d18567',
+    '--danger-bg': '#3d251a',
+    '--danger-border': '#8a4b33',
+    '--danger-ink': '#f0c4a8',
+    '--success': '#9fb475',
+    '--success-soft': '#b3c390',
+    '--nav-overlay': 'rgba(31, 27, 21, 0.95)',
+    '--modal-overlay': 'rgba(0, 0, 0, 0.7)',
+    '--accent-active': '#ece4d2',
+    '--accent-active-ink': '#1f1b15',
+    '--accent-active-hover': '#d4cbb5',
+    '--accent-active-divider': '#a09a85',
+  },
+};
+
+const THEME_KEY = 'checklist_revision_theme';
+const getStoredTheme = () => {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    if (v === 'light' || v === 'dark') return v;
+  } catch (e) { /* ignore */ }
+  return 'light';
 };
 
 // ─── STORAGE ─────────────────────────────────────────────
@@ -194,6 +273,14 @@ export default function App() {
   const [importError, setImportError] = useState('');
 
   const [hideChecked, setHideChecked] = useState(false);
+  const [theme, setTheme] = useState(() => getStoredTheme());
+
+  // Persist theme choice
+  useEffect(() => {
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* ignore */ }
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
 
   // Inject fonts
   useEffect(() => {
@@ -202,6 +289,22 @@ export default function App() {
     link.href = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap';
     document.head.appendChild(link);
     return () => { try { document.head.removeChild(link); } catch(e){} };
+  }, []);
+
+  // Inject theme-aware utility classes (needed when bundled CSS isn't available, e.g. inside an artifact).
+  useEffect(() => {
+    const id = 'checklist-revision-hover-utils';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      .hover-surface { transition: background-color 120ms ease; }
+      .hover-surface:hover { background-color: var(--surface-hover); }
+      .hover-danger { transition: background-color 120ms ease, color 120ms ease; }
+      .hover-danger:hover { background-color: var(--danger-bg); color: var(--danger); }
+    `;
+    document.head.appendChild(style);
+    return () => { try { document.head.removeChild(style); } catch(e){} };
   }, []);
 
   // Load
@@ -281,9 +384,10 @@ export default function App() {
 
   const setAsTemplate = (id) => {
     setProjects(prev => {
+      if (!prev[id]) return prev;
       const next = { ...prev };
       Object.keys(next).forEach(k => { next[k] = { ...next[k], isTemplate: false }; });
-      next[id] = { ...next[id], isTemplate: true };
+      next[id] = { ...next[id], isTemplate: true, seeded: true };
       return next;
     });
   };
@@ -306,7 +410,32 @@ export default function App() {
   };
 
   // ─── EXPORT / IMPORT ──────────────────────────────────
-  const exportJSON = JSON.stringify({ projects, activeId }, null, 2);
+  // Export modes: 'all' (all projects) | 'active' (just current project)
+  const [exportMode, setExportMode] = useState('all');
+  // Import modes: 'merge' (add without overwriting) | 'replace' (wipe & load)
+  const [importMode, setImportMode] = useState('merge');
+  // Snapshot of the active project ID at the moment the export modal opens.
+  // Prevents the exported payload from drifting if the user switches projects
+  // while the modal is still up.
+  const [exportSnapshotId, setExportSnapshotId] = useState(null);
+
+  const openExport = () => {
+    setExportMode('all');
+    setExportSnapshotId(activeId);
+    setShowExport(true);
+  };
+
+  const openImport = () => {
+    setImportMode('merge');
+    setImportError('');
+    setImportText('');
+    setShowImport(true);
+  };
+
+  const snapshotProject = exportSnapshotId ? projects[exportSnapshotId] : null;
+  const exportJSON = exportMode === 'active' && snapshotProject
+    ? JSON.stringify({ projects: { [snapshotProject.id]: snapshotProject }, activeId: snapshotProject.id }, null, 2)
+    : JSON.stringify({ projects, activeId }, null, 2);
 
   const handleImport = () => {
     try {
@@ -314,10 +443,41 @@ export default function App() {
       if (!data.projects || typeof data.projects !== 'object' || Object.keys(data.projects).length === 0) {
         setImportError('Format invalide : aucun projet trouvé.'); return;
       }
-      setProjects(data.projects);
-      const nextActive = data.activeId && data.projects[data.activeId]
-        ? data.activeId : Object.keys(data.projects)[0];
-      setActiveId(nextActive);
+
+      if (importMode === 'replace') {
+        // Wipe & load — used to restore a full backup
+        const incoming = { ...data.projects };
+        // Guarantee there's exactly one template in the final state.
+        const templateIds = Object.keys(incoming).filter(id => incoming[id].isTemplate);
+        if (templateIds.length === 0) {
+          // No template in imported data — promote the first project to template
+          const firstId = Object.keys(incoming)[0];
+          incoming[firstId] = { ...incoming[firstId], isTemplate: true, seeded: true };
+        } else if (templateIds.length > 1) {
+          // More than one — keep the first, demote the rest
+          templateIds.slice(1).forEach(id => {
+            incoming[id] = { ...incoming[id], isTemplate: false };
+          });
+        }
+        setProjects(incoming);
+        const nextActive = data.activeId && incoming[data.activeId]
+          ? data.activeId : Object.keys(incoming)[0];
+        setActiveId(nextActive);
+      } else {
+        // Merge — add imported projects as NEW projects (new IDs, not template)
+        // so nothing gets overwritten and the existing template stays the template.
+        const merged = { ...projects };
+        let firstNewId = null;
+        Object.values(data.projects).forEach(p => {
+          const cloned = cloneProject(p, p.name || 'Projet importé');
+          // cloneProject already sets isTemplate=false and regenerates IDs — exactly what we want
+          merged[cloned.id] = cloned;
+          if (!firstNewId) firstNewId = cloned.id;
+        });
+        setProjects(merged);
+        if (firstNewId) setActiveId(firstNewId);
+      }
+
       setImportText(''); setImportError(''); setShowImport(false);
     } catch (e) {
       setImportError('JSON invalide : ' + e.message);
@@ -325,17 +485,91 @@ export default function App() {
   };
 
   // ─── JUMP-TO for sticky nav ───────────────────────────
-  const jumpTo = useCallback((groupId) => {
-    const el = document.getElementById('group-' + groupId);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+  // Auto-expands any collapsed phase/group on the path, then scrolls.
+  // Uses requestAnimationFrame to wait for React's commit + layout before scrolling.
+  const jumpTo = useCallback((domId) => {
+    if (!domId) return;
+
+    let needsLayoutWait = false;
+
+    // Expand collapsed containers so the target is actually in the DOM
+    if (activeId) {
+      if (domId.startsWith('phase-')) {
+        const targetPhaseId = domId.slice(6);
+        setProjects(prev => {
+          const proj = prev[activeId];
+          if (!proj) return prev;
+          const targetPhase = proj.phases.find(ph => ph.id === targetPhaseId);
+          if (!targetPhase || !targetPhase.collapsed) return prev;
+          needsLayoutWait = true;
+          return {
+            ...prev,
+            [activeId]: {
+              ...proj,
+              phases: proj.phases.map(ph =>
+                ph.id === targetPhaseId ? { ...ph, collapsed: false } : ph
+              ),
+            },
+          };
+        });
+      } else if (domId.startsWith('group-')) {
+        const targetGroupId = domId.slice(6);
+        setProjects(prev => {
+          const proj = prev[activeId];
+          if (!proj) return prev;
+          let mutated = false;
+          const phases = proj.phases.map(ph => {
+            if (!ph.groups.some(g => g.id === targetGroupId)) return ph;
+            const needsPhaseExpand = ph.collapsed;
+            const needsGroupExpand = ph.groups.some(g => g.id === targetGroupId && g.collapsed);
+            if (!needsPhaseExpand && !needsGroupExpand) return ph;
+            mutated = true;
+            return {
+              ...ph,
+              collapsed: false,
+              groups: ph.groups.map(g =>
+                g.id === targetGroupId && g.collapsed ? { ...g, collapsed: false } : g
+              ),
+            };
+          });
+          if (!mutated) return prev;
+          needsLayoutWait = true;
+          return { ...prev, [activeId]: { ...proj, phases } };
+        });
+      }
+    }
+
+    // Try an immediate scroll first — works when nothing was collapsed.
+    const tryScroll = () => {
+      const el = document.getElementById(domId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return true;
+      }
+      return false;
+    };
+
+    if (!needsLayoutWait && tryScroll()) return;
+
+    // Otherwise wait for React commit + browser layout, then try up to 3 times.
+    let attempts = 3;
+    const waitAndScroll = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (tryScroll()) return;
+          if (--attempts > 0) waitAndScroll();
+        });
+      });
+    };
+    waitAndScroll();
+  }, [activeId]);
 
   // ─── LOADING ──────────────────────────────────────────
   if (!loaded) {
     return (
-      <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: '#f6f3ea', minHeight: '100vh' }}
+      <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: 'var(--bg)', minHeight: '100vh' }}
            className="flex items-center justify-center text-sm">
-        <span style={{ color: '#7a7566' }}>Chargement…</span>
+        <span style={{ color: 'var(--mute)' }}>Chargement…</span>
       </div>
     );
   }
@@ -348,27 +582,55 @@ export default function App() {
   });
 
   return (
-    <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: '#f6f3ea', color: '#1c1c1c', minHeight: '100vh' }}>
+    <div style={{
+      fontFamily: "'IBM Plex Sans', sans-serif",
+      background: 'var(--bg)',
+      color: 'var(--ink)',
+      minHeight: '100vh',
+      transition: 'background-color 200ms ease, color 200ms ease',
+      ...THEMES[theme],
+    }}>
       {/* grid overlay */}
       <div style={{
         position: 'fixed', inset: 0, pointerEvents: 'none', opacity: 0.3,
-        backgroundImage: 'linear-gradient(#e4dfcf 1px, transparent 1px), linear-gradient(90deg, #e4dfcf 1px, transparent 1px)',
+        backgroundImage: 'linear-gradient(var(--bg-grid) 1px, transparent 1px), linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px)',
         backgroundSize: '48px 48px',
       }} />
 
       <div className="relative max-w-5xl mx-auto px-6 py-10">
         {/* HEADER */}
-        <header className="mb-8 pb-6 border-b" style={{ borderColor: '#d8d2bf' }}>
+        <header className="mb-8 pb-6 border-b" style={{ borderColor: 'var(--border)' }}>
           <div className="flex items-baseline justify-between flex-wrap gap-4">
             <div>
-              <div style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#8a8472', fontSize: '11px', letterSpacing: '0.2em' }} className="uppercase mb-1">
+              <div style={{ fontFamily: "'IBM Plex Mono', monospace", color: 'var(--mute-soft)', fontSize: '11px', letterSpacing: '0.2em' }} className="uppercase mb-1">
                 Révision
               </div>
               <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: '36px', lineHeight: 1, letterSpacing: '-0.015em' }}>
                 Checklist de révision
               </h1>
             </div>
-            {active && <OverallBadge project={active} />}
+            <div className="flex items-start gap-3">
+              {active && <OverallBadge project={active} />}
+              <button
+                onClick={toggleTheme}
+                title={theme === 'light' ? 'Passer en mode sombre' : 'Passer en mode clair'}
+                aria-label="Changer de thème"
+                className="flex items-center justify-center transition-colors"
+                style={{
+                  width: '32px', height: '32px',
+                  background: 'transparent',
+                  border: '1px solid var(--border)',
+                  color: 'var(--mute)',
+                  marginTop: '2px',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+              >
+                {theme === 'light'
+                  ? <Moon size={14} strokeWidth={1.5} />
+                  : <Sun size={14} strokeWidth={1.5} />}
+              </button>
+            </div>
           </div>
         </header>
 
@@ -389,23 +651,23 @@ export default function App() {
                   className="px-3 py-1.5 text-xs transition-colors flex items-center gap-1.5"
                   style={{
                     fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em',
-                    color: hideChecked ? '#f6f3ea' : '#7a7566',
-                    background: hideChecked ? '#1c1c1c' : 'transparent',
-                    border: '1px solid ' + (hideChecked ? '#1c1c1c' : '#d8d2bf'),
+                    color: hideChecked ? 'var(--accent-active-ink)' : 'var(--mute)',
+                    background: hideChecked ? 'var(--accent-active)' : 'transparent',
+                    border: '1px solid ' + (hideChecked ? 'var(--accent-active)' : 'var(--border)'),
                   }}>
             {hideChecked ? <EyeOff size={12} /> : <Eye size={12} />}
             {hideChecked ? 'MASQUER COMPLÉTÉS' : 'VOIR TOUT'}
           </button>
-          <button onClick={() => setShowExport(true)} className="px-3 py-1.5 text-xs transition-colors"
-                  style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', color: '#7a7566', border: '1px solid #d8d2bf' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#efeadb'; e.currentTarget.style.color = '#1c1c1c'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7a7566'; }}>
+          <button onClick={openExport} className="px-3 py-1.5 text-xs transition-colors"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', color: 'var(--mute)', border: '1px solid var(--border)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}>
             EXPORTER
           </button>
-          <button onClick={() => { setShowImport(true); setImportError(''); }} className="px-3 py-1.5 text-xs transition-colors"
-                  style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', color: '#7a7566', border: '1px solid #d8d2bf' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#efeadb'; e.currentTarget.style.color = '#1c1c1c'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7a7566'; }}>
+          <button onClick={openImport} className="px-3 py-1.5 text-xs transition-colors"
+                  style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', color: 'var(--mute)', border: '1px solid var(--border)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}>
             IMPORTER
           </button>
         </div>
@@ -420,7 +682,7 @@ export default function App() {
       </div>
 
       {/* STICKY NAV */}
-      {active && <StickyNav phases={active.phases} onJumpTo={jumpTo} />}
+      {active && <StickyNav phases={active.phases} onJumpTo={jumpTo} onAddPhase={addPhase} />}
 
       <div className="relative max-w-5xl mx-auto px-6 pb-16">
         {active && (
@@ -455,16 +717,16 @@ export default function App() {
 
             <button onClick={addPhase}
                     className="mt-6 w-full py-4 flex items-center justify-center gap-2 text-sm transition-colors"
-                    style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', border: '1px dashed #b8b19a', color: '#7a7566', background: 'transparent' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#efeadb'; e.currentTarget.style.color = '#1c1c1c'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7a7566'; }}>
+                    style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em', border: '1px dashed var(--dash)', color: 'var(--mute)', background: 'transparent' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}>
               <Plus size={14} /> AJOUTER UNE PHASE
             </button>
           </main>
         )}
 
         <footer className="mt-16 pt-6 text-xs flex justify-between"
-                style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#a09a85', borderTop: '1px solid #e4dfcf' }}>
+                style={{ fontFamily: "'IBM Plex Mono', monospace", color: 'var(--mute-extra)', borderTop: '1px solid var(--border-soft)' }}>
           <span>Sauvegarde automatique</span>
           <span>{projectList.length} projet{projectList.length > 1 ? 's' : ''}</span>
         </footer>
@@ -485,16 +747,49 @@ export default function App() {
       {/* EXPORT MODAL */}
       {showExport && (
         <Modal title="Exporter les données" onClose={() => setShowExport(false)}>
-          <p className="text-sm mb-3" style={{ color: '#5a554a' }}>
-            Copie ce texte et garde-le en sauvegarde. Utile pour transférer vers un autre artifact.
-          </p>
-          <textarea readOnly value={exportJSON} onClick={e => e.target.select()} rows={14}
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--mute-soft)', letterSpacing: '0.15em' }} className="uppercase mb-2">
+            Que veux-tu exporter?
+          </div>
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <button
+              onClick={() => setExportMode('all')}
+              className="text-left p-3 transition-colors"
+              style={{
+                background: exportMode === 'all' ? 'var(--accent-active)' : 'var(--surface)',
+                color: exportMode === 'all' ? 'var(--accent-active-ink)' : 'var(--ink)',
+                border: '1px solid ' + (exportMode === 'all' ? 'var(--accent-active)' : 'var(--border)'),
+              }}>
+              <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: '13px' }}>
+                Tous les projets
+              </div>
+              <div className="text-xs mt-0.5" style={{ opacity: 0.7 }}>
+                Sauvegarde complète ({Object.keys(projects).length} projet{Object.keys(projects).length > 1 ? 's' : ''})
+              </div>
+            </button>
+            <button
+              onClick={() => setExportMode('active')}
+              disabled={!snapshotProject}
+              className="text-left p-3 transition-colors disabled:opacity-40"
+              style={{
+                background: exportMode === 'active' ? 'var(--accent-active)' : 'var(--surface)',
+                color: exportMode === 'active' ? 'var(--accent-active-ink)' : 'var(--ink)',
+                border: '1px solid ' + (exportMode === 'active' ? 'var(--accent-active)' : 'var(--border)'),
+              }}>
+              <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: '13px' }}>
+                Projet courant
+              </div>
+              <div className="text-xs mt-0.5" style={{ opacity: 0.7 }}>
+                {snapshotProject ? `« ${snapshotProject.name} » seulement` : '—'}
+              </div>
+            </button>
+          </div>
+          <textarea readOnly value={exportJSON} onClick={e => e.target.select()} rows={12}
                     className="w-full px-3 py-2 text-xs outline-none"
-                    style={{ fontFamily: "'IBM Plex Mono', monospace", background: '#faf7ec', border: '1px solid #d8d2bf', color: '#1c1c1c' }} />
+                    style={{ fontFamily: "'IBM Plex Mono', monospace", background: 'var(--surface-alt)', border: '1px solid var(--border)', color: 'var(--ink)' }} />
           <div className="mt-3 flex justify-end">
             <button onClick={() => navigator.clipboard?.writeText(exportJSON)}
                     className="px-3 py-1.5 text-xs"
-                    style={{ background: '#1c1c1c', color: '#f6f3ea', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
+                    style={{ background: 'var(--ink)', color: 'var(--bg)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
               COPIER
             </button>
           </div>
@@ -504,24 +799,61 @@ export default function App() {
       {/* IMPORT MODAL */}
       {showImport && (
         <Modal title="Importer les données" onClose={() => setShowImport(false)}>
-          <p className="text-sm mb-3" style={{ color: '#5a554a' }}>
-            Colle ici le JSON exporté. <strong>Attention</strong> — ceci remplacera toutes tes données actuelles.
-          </p>
-          <textarea value={importText} onChange={e => setImportText(e.target.value)} rows={14}
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--mute-soft)', letterSpacing: '0.15em' }} className="uppercase mb-2">
+            Mode d'import
+          </div>
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <button
+              onClick={() => setImportMode('merge')}
+              className="text-left p-3 transition-colors"
+              style={{
+                background: importMode === 'merge' ? 'var(--accent-active)' : 'var(--surface)',
+                color: importMode === 'merge' ? 'var(--accent-active-ink)' : 'var(--ink)',
+                border: '1px solid ' + (importMode === 'merge' ? 'var(--accent-active)' : 'var(--border)'),
+              }}>
+              <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: '13px' }}>
+                Ajouter
+              </div>
+              <div className="text-xs mt-0.5" style={{ opacity: 0.7 }}>
+                Les projets importés sont ajoutés comme nouveaux. Rien n'est effacé.
+              </div>
+            </button>
+            <button
+              onClick={() => setImportMode('replace')}
+              className="text-left p-3 transition-colors"
+              style={{
+                background: importMode === 'replace' ? 'var(--danger)' : 'var(--surface)',
+                color: importMode === 'replace' ? 'var(--accent-active-ink)' : 'var(--ink)',
+                border: '1px solid ' + (importMode === 'replace' ? 'var(--danger)' : 'var(--border)'),
+              }}>
+              <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: '13px' }}>
+                Remplacer tout
+              </div>
+              <div className="text-xs mt-0.5" style={{ opacity: 0.7 }}>
+                Efface tout et restaure le contenu du JSON. Pour backups.
+              </div>
+            </button>
+          </div>
+          <textarea value={importText} onChange={e => setImportText(e.target.value)} rows={12}
                     placeholder="Colle ton JSON ici…"
                     className="w-full px-3 py-2 text-xs outline-none"
-                    style={{ fontFamily: "'IBM Plex Mono', monospace", background: '#faf7ec', border: '1px solid #d8d2bf', color: '#1c1c1c' }} />
-          {importError && <div className="mt-2 text-sm" style={{ color: '#8a4b33' }}>{importError}</div>}
+                    style={{ fontFamily: "'IBM Plex Mono', monospace", background: 'var(--surface-alt)', border: '1px solid var(--border)', color: 'var(--ink)' }} />
+          {importError && <div className="mt-2 text-sm" style={{ color: 'var(--danger)' }}>{importError}</div>}
           <div className="mt-3 flex gap-2 justify-end">
             <button onClick={() => { setShowImport(false); setImportText(''); setImportError(''); }}
                     className="px-3 py-1.5 text-xs"
-                    style={{ border: '1px solid #8a8472', color: '#5a554a', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
+                    style={{ border: '1px solid var(--mute-soft)', color: 'var(--mute)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
               ANNULER
             </button>
             <button onClick={handleImport} disabled={!importText.trim()}
                     className="px-3 py-1.5 text-xs disabled:opacity-40"
-                    style={{ background: '#1c1c1c', color: '#f6f3ea', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
-              IMPORTER
+                    style={{
+                      background: importMode === 'replace' ? 'var(--danger)' : 'var(--accent-active)',
+                      color: 'var(--bg)',
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      letterSpacing: '0.1em',
+                    }}>
+              {importMode === 'replace' ? 'REMPLACER' : 'AJOUTER'}
             </button>
           </div>
         </Modal>
@@ -531,139 +863,210 @@ export default function App() {
 }
 
 // ═════════════════════════════════════════════════════════
-// STICKY NAV
+// STICKY NAV — horizontal phase buttons with per-phase dropdown
 // ═════════════════════════════════════════════════════════
-function StickyNav({ phases, onJumpTo }) {
-  const [open, setOpen] = useState(false);
+function StickyNav({ phases, onJumpTo, onAddPhase }) {
+  const [openPhaseId, setOpenPhaseId] = useState(null);
   const ref = useRef(null);
 
-  const sections = [];
-  phases.forEach(phase => {
-    phase.groups.forEach(group => {
-      sections.push({ phaseName: phase.name, groupId: group.id, groupName: group.name, pct: Math.round(groupPct(group)) });
-    });
-  });
-
   useEffect(() => {
-    if (!open) return;
-    const onClickOutside = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpenPhaseId(null);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setOpenPhaseId(null); };
     document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [open]);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, []);
 
-  if (sections.length === 0) return null;
+  if (phases.length === 0) return null;
 
-  // Group sections by phase name for display
-  const byPhase = [];
-  sections.forEach(s => {
-    const last = byPhase[byPhase.length - 1];
-    if (last && last.phaseName === s.phaseName) last.groups.push(s);
-    else byPhase.push({ phaseName: s.phaseName, groups: [s] });
-  });
+  const closeAndJump = (domId) => {
+    setOpenPhaseId(null);
+    onJumpTo(domId);
+  };
 
   return (
     <div ref={ref} style={{ position: 'sticky', top: 0, zIndex: 30 }}>
       <div style={{
-        background: 'rgba(246, 243, 234, 0.97)',
+        background: 'var(--nav-overlay)',
         backdropFilter: 'blur(8px)',
-        borderTop: '1px solid #d8d2bf', borderBottom: '1px solid #d8d2bf',
+        borderTop: '1px solid var(--border)',
+        borderBottom: '1px solid var(--border)',
       }}>
         <div className="max-w-5xl mx-auto px-6">
-          <div className="flex items-center gap-3 py-2">
-            <button
-              onClick={() => setOpen(v => !v)}
-              className="flex items-center gap-2 px-3 py-1.5 transition-colors"
-              style={{
-                fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px',
-                letterSpacing: '0.15em', color: open ? '#f6f3ea' : '#1c1c1c',
-                background: open ? '#1c1c1c' : '#fdfaf1',
-                border: '1px solid ' + (open ? '#1c1c1c' : '#d8d2bf'),
-              }}>
-              <Layers size={11} strokeWidth={1.5} />
-              SOMMAIRE
-              {open
-                ? <ChevronDown size={11} strokeWidth={1.5} />
-                : <ChevronRight size={11} strokeWidth={1.5} />}
-            </button>
+          <div className="flex items-center gap-2 py-2 flex-wrap">
+            {phases.map(phase => {
+              const { pct } = computePhase(phase);
+              const tone = progressTone(pct);
+              const isOpen = openPhaseId === phase.id;
+              const hasGroups = phase.groups.length > 0;
 
-            {/* Quick progress pills when closed */}
-            {!open && (
-              <div className="flex gap-1.5 flex-wrap">
-                {sections.map(s => {
-                  const tone = progressTone(s.pct);
-                  return (
+              return (
+                <div key={phase.id} className="relative">
+                  {/* Split button: [name+%] | [chevron] */}
+                  <div
+                    className="flex items-stretch"
+                    style={{
+                      border: '1px solid ' + (isOpen ? 'var(--accent-active)' : 'var(--border)'),
+                      background: isOpen ? 'var(--accent-active)' : 'var(--surface)',
+                      transition: 'border-color 150ms ease, background-color 150ms ease',
+                    }}
+                  >
+                    {/* LEFT: jump directly to phase */}
                     <button
-                      key={s.groupId}
-                      onClick={() => { onJumpTo(s.groupId); }}
-                      className="px-2 py-1 text-left transition-all"
-                      style={{ background: '#fdfaf1', border: '1px solid #d8d2bf' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#efeadb'; e.currentTarget.style.borderColor = '#1c1c1c'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = '#fdfaf1'; e.currentTarget.style.borderColor = '#d8d2bf'; }}>
-                      <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: '11px', fontWeight: 500, color: '#1c1c1c' }}>
-                        {s.groupName}
-                      </span>
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: tone.text, marginLeft: '6px' }}>
-                        {s.pct}%
+                      onClick={() => closeAndJump('phase-' + phase.id)}
+                      className="flex items-center gap-2 px-3 py-1.5 transition-colors"
+                      style={{
+                        fontFamily: "'IBM Plex Sans', sans-serif",
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: isOpen ? 'var(--accent-active-ink)' : 'var(--ink)',
+                        background: 'transparent',
+                      }}
+                      title={'Aller à ' + phase.name}
+                      onMouseEnter={e => {
+                        if (!isOpen) e.currentTarget.style.background = 'var(--surface-hover)';
+                        else e.currentTarget.style.background = 'var(--accent-active-hover)';
+                      }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span>{phase.name}</span>
+                      <span style={{
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontSize: '10px',
+                        fontWeight: 500,
+                        color: isOpen ? 'var(--mute-extra)' : tone.text,
+                      }}>
+                        {pct}%
                       </span>
                     </button>
-                  );
-                })}
-              </div>
-            )}
+
+                    {/* Divider */}
+                    <div style={{
+                      width: '1px',
+                      background: isOpen ? 'var(--accent-active-divider)' : 'var(--border)',
+                      alignSelf: 'stretch',
+                    }} />
+
+                    {/* RIGHT: toggle dropdown only */}
+                    <button
+                      onClick={() => setOpenPhaseId(isOpen ? null : phase.id)}
+                      className="flex items-center px-2 transition-colors"
+                      style={{
+                        color: isOpen ? 'var(--accent-active-ink)' : 'var(--ink)',
+                        background: 'transparent',
+                      }}
+                      title={isOpen ? 'Fermer' : 'Voir les grandes tâches'}
+                      aria-expanded={isOpen}
+                      onMouseEnter={e => {
+                        if (!isOpen) e.currentTarget.style.background = 'var(--surface-hover)';
+                        else e.currentTarget.style.background = 'var(--accent-active-hover)';
+                      }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <ChevronDown
+                        size={12}
+                        strokeWidth={1.5}
+                        style={{
+                          transform: isOpen ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 200ms ease',
+                        }}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Dropdown panel for this phase */}
+                  {isOpen && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      minWidth: '280px',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      boxShadow: '0 8px 24px rgba(28,28,28,0.15)',
+                      zIndex: 32,
+                    }}>
+                      {hasGroups ? (
+                        phase.groups.map(group => {
+                          const gpct = Math.round(groupPct(group));
+                          const gtone = progressTone(gpct);
+                          return (
+                            <button
+                              key={group.id}
+                              onClick={() => closeAndJump('group-' + group.id)}
+                              className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left transition-colors"
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              <span style={{
+                                fontFamily: "'IBM Plex Sans', sans-serif",
+                                fontSize: '13px',
+                                color: 'var(--ink)',
+                              }}>
+                                {group.name}
+                              </span>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <div style={{ width: '42px', height: '3px', background: 'var(--border-soft)', position: 'relative' }}>
+                                  <div style={{
+                                    width: `${gpct}%`,
+                                    height: '100%',
+                                    background: gtone.bar,
+                                    transition: 'width 400ms ease',
+                                  }} />
+                                </div>
+                                <span style={{
+                                  fontFamily: "'IBM Plex Mono', monospace",
+                                  fontSize: '10px',
+                                  color: gtone.text,
+                                  minWidth: '28px',
+                                  textAlign: 'right',
+                                }}>
+                                  {gpct}%
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="px-3 py-2 text-xs italic" style={{
+                          color: 'var(--mute-soft)',
+                          fontFamily: "'IBM Plex Sans', sans-serif",
+                        }}>
+                          Aucune grande tâche.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Add-phase quick button in nav */}
+            <button
+              onClick={onAddPhase}
+              className="flex items-center gap-1.5 px-3 py-1.5 transition-colors"
+              style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: '11px',
+                letterSpacing: '0.12em',
+                color: 'var(--mute)',
+                border: '1px dashed var(--dash)',
+                background: 'transparent',
+              }}
+              title="Ajouter une phase"
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}
+            >
+              <Plus size={11} strokeWidth={1.5} /> PHASE
+            </button>
           </div>
         </div>
       </div>
-
-      {/* Dropdown menu */}
-      {open && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0,
-          background: '#fdfaf1', border: '1px solid #d8d2bf',
-          borderTop: 'none', zIndex: 31,
-          boxShadow: '0 8px 24px rgba(28,28,28,0.12)',
-        }}>
-          <div className="max-w-5xl mx-auto px-6 py-3">
-            {byPhase.map(phase => (
-              <div key={phase.phaseName} className="mb-3 last:mb-0">
-                <div style={{
-                  fontFamily: "'IBM Plex Mono', monospace", fontSize: '9px',
-                  letterSpacing: '0.2em', color: '#8a8472', textTransform: 'uppercase',
-                  paddingBottom: '6px', marginBottom: '4px', borderBottom: '1px solid #e4dfcf',
-                }}>
-                  {phase.phaseName}
-                </div>
-                {phase.groups.map(s => {
-                  const tone = progressTone(s.pct);
-                  return (
-                    <button
-                      key={s.groupId}
-                      onClick={() => { onJumpTo(s.groupId); setOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-left transition-colors"
-                      style={{ background: 'transparent' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#efeadb'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-                      <div className="flex items-center gap-2">
-                        <ChevronRight size={12} strokeWidth={1.5} style={{ color: '#b8b19a' }} />
-                        <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: '13px', fontWeight: 500, color: '#1c1c1c' }}>
-                          {s.groupName}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div style={{ width: '60px', height: '3px', background: '#e4dfcf', position: 'relative' }}>
-                          <div style={{ width: `${s.pct}%`, height: '100%', background: tone.bar, transition: 'width 400ms ease' }} />
-                        </div>
-                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: tone.text, minWidth: '28px', textAlign: 'right' }}>
-                          {s.pct}%
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -685,7 +1088,7 @@ function BackToTop() {
             className="fixed bottom-6 right-6 flex items-center justify-center transition-all"
             style={{
               width: '44px', height: '44px', zIndex: 40,
-              background: '#1c1c1c', color: '#f6f3ea', border: '1px solid #1c1c1c',
+              background: 'var(--ink)', color: 'var(--bg)', border: '1px solid var(--ink)',
               boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
             }}
             title="Retour en haut"
@@ -701,11 +1104,11 @@ function BackToTop() {
 // ═════════════════════════════════════════════════════════
 function EmptyState({ title, subtitle }) {
   return (
-    <div className="text-center py-16" style={{ background: '#fdfaf1', border: '1px dashed #b8b19a' }}>
-      <div style={{ fontFamily: "'Fraunces', serif", fontSize: '22px', fontWeight: 600, color: '#1c1c1c' }}>
+    <div className="text-center py-16" style={{ background: 'var(--surface)', border: '1px dashed var(--dash)' }}>
+      <div style={{ fontFamily: "'Fraunces', serif", fontSize: '22px', fontWeight: 600, color: 'var(--ink)' }}>
         {title}
       </div>
-      <div className="mt-2 max-w-md mx-auto text-sm" style={{ color: '#7a7566' }}>
+      <div className="mt-2 max-w-md mx-auto text-sm" style={{ color: 'var(--mute)' }}>
         {subtitle}
       </div>
     </div>
@@ -721,17 +1124,17 @@ function OverallBadge({ project }) {
   return (
     <div className="flex items-center gap-4">
       <div className="text-right">
-        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', color: '#8a8472' }} className="uppercase">
+        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', color: 'var(--mute-soft)' }} className="uppercase">
           Progression totale
         </div>
         <div style={{ fontFamily: "'Fraunces', serif", fontSize: '30px', fontWeight: 700, color: tone.text, lineHeight: 1 }}>
-          {pct}<span style={{ fontSize: '16px', color: '#8a8472', fontWeight: 400 }}>%</span>
+          {pct}<span style={{ fontSize: '16px', color: 'var(--mute-soft)', fontWeight: 400 }}>%</span>
         </div>
-        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: '#8a8472' }}>
+        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--mute-soft)' }}>
           {done} / {total} items
         </div>
       </div>
-      <div style={{ width: '6px', height: '60px', background: '#e4dfcf', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ width: '6px', height: '60px', background: 'var(--border-soft)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${pct}%`, background: tone.bar, transition: 'height 400ms ease' }} />
       </div>
     </div>
@@ -750,6 +1153,7 @@ function ProjectBar({ projects, activeId, onSwitch, onRename, onDelete, onSetTem
     if (editingId && tempName.trim()) onRename(editingId, tempName.trim());
     setEditingId(null);
   };
+  const cancelRename = () => setEditingId(null);
 
   return (
     <div className="flex flex-wrap gap-2 items-center">
@@ -759,15 +1163,16 @@ function ProjectBar({ projects, activeId, onSwitch, onRename, onDelete, onSetTem
         return (
           <div key={p.id} className="flex items-center"
                style={{
-                 background: isActive ? '#1c1c1c' : '#efeadb',
-                 color: isActive ? '#f6f3ea' : '#1c1c1c',
-                 border: isActive ? '1px solid #1c1c1c' : '1px solid #d8d2bf',
+                 background: isActive ? 'var(--accent-active)' : 'var(--surface-hover)',
+                 color: isActive ? 'var(--accent-active-ink)' : 'var(--ink)',
+                 border: isActive ? '1px solid var(--accent-active)' : '1px solid var(--border)',
                }}>
             {isEditing ? (
               <input autoFocus value={tempName}
                      onChange={e => setTempName(e.target.value)}
-                     onBlur={commitRename}
-                     onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null); }}
+                     onFocus={e => e.target.select()}
+                     onBlur={cancelRename}
+                     onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') cancelRename(); }}
                      className="px-3 py-2 text-sm outline-none bg-transparent"
                      style={{ fontFamily: "'IBM Plex Sans', sans-serif", color: 'inherit', minWidth: '120px' }} />
             ) : (
@@ -776,7 +1181,7 @@ function ProjectBar({ projects, activeId, onSwitch, onRename, onDelete, onSetTem
                         className="px-4 py-2 text-sm flex items-center gap-2"
                         style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: isActive ? 600 : 400 }}
                         title="Double-cliquer pour renommer">
-                  {p.isTemplate ? <Star size={13} strokeWidth={1.8} fill={isActive ? '#f6f3ea' : '#1c1c1c'} /> : <Folder size={14} strokeWidth={1.5} />}
+                  {p.isTemplate ? <Star size={13} strokeWidth={1.8} fill={isActive ? 'var(--accent-active-ink)' : 'var(--ink)'} /> : <Folder size={14} strokeWidth={1.5} />}
                   {p.name}
                   {p.isTemplate && (
                     <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', opacity: 0.7 }} className="uppercase">
@@ -785,7 +1190,7 @@ function ProjectBar({ projects, activeId, onSwitch, onRename, onDelete, onSetTem
                   )}
                 </button>
                 {isActive && (
-                  <div className="flex" style={{ borderLeft: '1px solid ' + (isActive ? '#3a3a3a' : '#d8d2bf') }}>
+                  <div className="flex" style={{ borderLeft: '1px solid ' + (isActive ? 'var(--accent-active-divider)' : 'var(--border)') }}>
                     {!p.isTemplate && (
                       <button onClick={() => onSetTemplate(p.id)} className="px-2 py-2 hover:opacity-70" title="Définir comme gabarit">
                         <StarOff size={12} />
@@ -805,9 +1210,9 @@ function ProjectBar({ projects, activeId, onSwitch, onRename, onDelete, onSetTem
 
       <button onClick={onNew}
               className="px-4 py-2 text-sm flex items-center gap-2 transition-colors"
-              style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', color: '#7a7566', border: '1px dashed #b8b19a' }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#1c1c1c'; e.currentTarget.style.background = '#efeadb'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#7a7566'; e.currentTarget.style.background = 'transparent'; }}>
+              style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', color: 'var(--mute)', border: '1px dashed var(--dash)' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.background = 'var(--surface-hover)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--mute)'; e.currentTarget.style.background = 'transparent'; }}>
         <FolderPlus size={13} strokeWidth={1.5} /> NOUVEAU PROJET
       </button>
     </div>
@@ -829,15 +1234,15 @@ function NewProjectModal({ template, onFromTemplate, onEmpty, onClose }) {
 
   return (
     <Modal title="Nouveau projet" onClose={onClose}>
-      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: '#8a8472', letterSpacing: '0.15em' }} className="uppercase mb-2">
+      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--mute-soft)', letterSpacing: '0.15em' }} className="uppercase mb-2">
         Nom
       </div>
       <input autoFocus value={name} onChange={e => setName(e.target.value)}
              placeholder="Nom du projet"
              className="w-full px-3 py-2 text-sm outline-none mb-5"
-             style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: '#faf7ec', border: '1px solid #d8d2bf', color: '#1c1c1c' }} />
+             style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: 'var(--surface-alt)', border: '1px solid var(--border)', color: 'var(--ink)' }} />
 
-      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: '#8a8472', letterSpacing: '0.15em' }} className="uppercase mb-2">
+      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--mute-soft)', letterSpacing: '0.15em' }} className="uppercase mb-2">
         Point de départ
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-5">
@@ -845,12 +1250,12 @@ function NewProjectModal({ template, onFromTemplate, onEmpty, onClose }) {
                 disabled={!template}
                 className="text-left p-4 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
-                  background: choice === 'template' ? '#1c1c1c' : '#fdfaf1',
-                  color: choice === 'template' ? '#f6f3ea' : '#1c1c1c',
-                  border: '1px solid ' + (choice === 'template' ? '#1c1c1c' : '#d8d2bf'),
+                  background: choice === 'template' ? 'var(--accent-active)' : 'var(--surface)',
+                  color: choice === 'template' ? 'var(--accent-active-ink)' : 'var(--ink)',
+                  border: '1px solid ' + (choice === 'template' ? 'var(--accent-active)' : 'var(--border)'),
                 }}>
           <div className="flex items-center gap-2 mb-1">
-            <Star size={14} strokeWidth={1.8} fill={choice === 'template' ? '#f6f3ea' : 'none'} />
+            <Star size={14} strokeWidth={1.8} fill={choice === 'template' ? 'var(--accent-active-ink)' : 'none'} />
             <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: '14px' }}>
               Utiliser le gabarit
             </span>
@@ -862,9 +1267,9 @@ function NewProjectModal({ template, onFromTemplate, onEmpty, onClose }) {
         <button onClick={() => setChoice('empty')}
                 className="text-left p-4 transition-colors"
                 style={{
-                  background: choice === 'empty' ? '#1c1c1c' : '#fdfaf1',
-                  color: choice === 'empty' ? '#f6f3ea' : '#1c1c1c',
-                  border: '1px solid ' + (choice === 'empty' ? '#1c1c1c' : '#d8d2bf'),
+                  background: choice === 'empty' ? 'var(--accent-active)' : 'var(--surface)',
+                  color: choice === 'empty' ? 'var(--accent-active-ink)' : 'var(--ink)',
+                  border: '1px solid ' + (choice === 'empty' ? 'var(--accent-active)' : 'var(--border)'),
                 }}>
           <div className="flex items-center gap-2 mb-1">
             <FileText size={14} strokeWidth={1.8} />
@@ -880,12 +1285,12 @@ function NewProjectModal({ template, onFromTemplate, onEmpty, onClose }) {
 
       <div className="flex gap-2 justify-end">
         <button onClick={onClose} className="px-3 py-1.5 text-xs"
-                style={{ border: '1px solid #8a8472', color: '#5a554a', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
+                style={{ border: '1px solid var(--mute-soft)', color: 'var(--mute)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
           ANNULER
         </button>
         <button onClick={submit} disabled={!choice}
                 className="px-3 py-1.5 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: '#1c1c1c', color: '#f6f3ea', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
           CRÉER
         </button>
       </div>
@@ -899,15 +1304,15 @@ function NewProjectModal({ template, onFromTemplate, onEmpty, onClose }) {
 function ConfirmBanner({ message, onConfirm, onCancel }) {
   return (
     <div className="mt-4 px-4 py-3 flex items-center justify-between gap-4"
-         style={{ background: '#f0e4d8', border: '1px solid #c7956b', color: '#5a3a1e', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+         style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', color: 'var(--danger-ink)', fontFamily: "'IBM Plex Sans', sans-serif" }}>
       <span className="text-sm">{message}</span>
       <div className="flex gap-2">
         <button onClick={onConfirm} className="px-3 py-1.5 text-xs"
-                style={{ background: '#8a4b33', color: '#f6f3ea', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
+                style={{ background: 'var(--danger)', color: 'var(--bg)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
           SUPPRIMER
         </button>
         <button onClick={onCancel} className="px-3 py-1.5 text-xs"
-                style={{ border: '1px solid #8a4b33', color: '#5a3a1e', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
+                style={{ border: '1px solid var(--danger)', color: 'var(--danger-ink)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>
           ANNULER
         </button>
       </div>
@@ -927,14 +1332,14 @@ function Modal({ title, children, onClose }) {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center p-6"
-         style={{ background: 'rgba(28, 28, 28, 0.5)', zIndex: 50 }}
+         style={{ background: 'var(--modal-overlay)', zIndex: 50 }}
          onClick={onClose}>
       <div onClick={e => e.stopPropagation()}
            className="max-w-2xl w-full p-6"
-           style={{ background: '#fdfaf1', border: '1px solid #d8d2bf', maxHeight: '85vh', overflow: 'auto' }}>
+           style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '85vh', overflow: 'auto' }}>
         <div className="flex items-center justify-between mb-4">
           <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '22px', fontWeight: 600, letterSpacing: '-0.005em' }}>{title}</h3>
-          <button onClick={onClose} className="p-1 hover:opacity-60" style={{ color: '#8a8472' }} aria-label="Fermer">
+          <button onClick={onClose} className="p-1 hover:opacity-60" style={{ color: 'var(--mute-soft)' }} aria-label="Fermer">
             <X size={18} />
           </button>
         </div>
@@ -956,47 +1361,64 @@ function PhaseBlock({
   const [confirmDel, setConfirmDel] = useState(false);
   const [tempName, setTempName] = useState(phase.name);
 
-  useEffect(() => { setTempName(phase.name); }, [phase.name]);
+  useEffect(() => {
+    if (!phase.editing) setTempName(phase.name);
+  }, [phase.name, phase.editing]);
 
   const toggleCollapsed = () => onUpdate(p => ({ ...p, collapsed: !p.collapsed }));
   const startEdit = () => onUpdate(p => ({ ...p, editing: true }));
-  const commitEdit = () => onUpdate(p => ({ ...p, editing: false, name: tempName.trim() || p.name }));
+  const commitEdit = () => onUpdate(p => ({ ...p, editing: false, name: tempName.trim() }));
+  const cancelEdit = () => {
+    setTempName(phase.name);
+    onUpdate(p => ({ ...p, editing: false }));
+  };
+
+  const displayName = phase.name && phase.name.trim() ? phase.name : '(sans titre)';
+  const isNameEmpty = !phase.name || !phase.name.trim();
 
   return (
-    <section style={{ background: '#fdfaf1', border: '1px solid #d8d2bf' }}>
+    <section id={'phase-' + phase.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', scrollMarginTop: '120px' }}>
       {/* HEADER */}
-      <div className="flex items-center" style={{ borderBottom: phase.collapsed ? 'none' : '1px solid #e4dfcf' }}>
+      <div className="flex items-center" style={{ borderBottom: phase.collapsed ? 'none' : '1px solid var(--border-soft)' }}>
         <button onClick={toggleCollapsed} className="flex items-center gap-2 px-4 py-3 flex-1 text-left">
           {phase.collapsed ? <ChevronRight size={16} strokeWidth={1.5} /> : <ChevronDown size={16} strokeWidth={1.5} />}
           {phase.editing ? (
             <input autoFocus value={tempName}
                    onChange={e => setTempName(e.target.value)}
-                   onBlur={commitEdit}
+                   onFocus={e => e.target.select()}
+                   onBlur={cancelEdit}
                    onClick={e => e.stopPropagation()}
-                   onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') onUpdate(p => ({ ...p, editing: false })); }}
+                   onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit(); }}
                    className="px-2 py-1 text-lg outline-none"
-                   style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, background: '#f6f3ea', border: '1px solid #b8b19a', minWidth: '240px' }} />
+                   style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, background: 'var(--bg)', border: '1px solid var(--dash)', minWidth: '240px' }} />
           ) : (
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '22px', fontWeight: 600, letterSpacing: '-0.005em' }}>
-              {phase.name}
+            <h2 style={{
+              fontFamily: "'Fraunces', serif",
+              fontSize: '22px',
+              fontWeight: 600,
+              letterSpacing: '-0.005em',
+              color: isNameEmpty ? 'var(--mute-extra)' : 'var(--ink)',
+              fontStyle: isNameEmpty ? 'italic' : 'normal',
+            }}>
+              {displayName}
             </h2>
           )}
         </button>
         <div className="flex items-center gap-4 px-4">
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: '#8a8472' }} className="hidden sm:block">
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--mute-soft)' }} className="hidden sm:block">
             {done}/{total}
           </div>
           <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: '20px', color: tone.text, lineHeight: 1, minWidth: '52px', textAlign: 'right' }}>
-            {pct}<span style={{ fontSize: '11px', color: '#8a8472', fontWeight: 400 }}>%</span>
+            {pct}<span style={{ fontSize: '11px', color: 'var(--mute-soft)', fontWeight: 400 }}>%</span>
           </div>
-          <div style={{ width: '80px', height: '4px', background: '#e4dfcf', position: 'relative' }}>
+          <div style={{ width: '80px', height: '4px', background: 'var(--border-soft)', position: 'relative' }}>
             <div style={{ width: `${pct}%`, height: '100%', background: tone.bar, transition: 'width 400ms ease' }} />
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={startEdit} className="p-1.5 hover:bg-stone-200 transition-colors" title="Renommer">
+            <button onClick={startEdit} className="p-1.5 hover-surface" title="Renommer">
               <Pencil size={13} strokeWidth={1.5} />
             </button>
-            <button onClick={() => setConfirmDel(true)} className="p-1.5 hover:bg-stone-200 transition-colors" title="Supprimer">
+            <button onClick={() => setConfirmDel(true)} className="p-1.5 hover-surface" title="Supprimer">
               <Trash2 size={13} strokeWidth={1.5} />
             </button>
           </div>
@@ -1005,13 +1427,13 @@ function PhaseBlock({
 
       {confirmDel && (
         <div className="px-4 py-2 flex items-center justify-between gap-4 text-sm"
-             style={{ background: '#f0e4d8', borderBottom: '1px solid #c7956b', color: '#5a3a1e' }}>
+             style={{ background: 'var(--danger-bg)', borderBottom: '1px solid var(--danger-border)', color: 'var(--danger-ink)' }}>
           <span>Supprimer « {phase.name} » et toutes ses grandes tâches ?</span>
           <div className="flex gap-2">
             <button onClick={() => { onDelete(); setConfirmDel(false); }} className="px-2 py-1 text-xs"
-                    style={{ background: '#8a4b33', color: '#f6f3ea', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>SUPPRIMER</button>
+                    style={{ background: 'var(--danger)', color: 'var(--bg)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>SUPPRIMER</button>
             <button onClick={() => setConfirmDel(false)} className="px-2 py-1 text-xs"
-                    style={{ border: '1px solid #8a4b33', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>ANNULER</button>
+                    style={{ border: '1px solid var(--danger)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>ANNULER</button>
           </div>
         </div>
       )}
@@ -1020,7 +1442,7 @@ function PhaseBlock({
       {!phase.collapsed && (
         <div>
           {phase.groups.length === 0 ? (
-            <div className="px-8 py-6 text-center text-sm" style={{ color: '#8a8472' }}>
+            <div className="px-8 py-6 text-center text-sm" style={{ color: 'var(--mute-soft)' }}>
               Aucune grande tâche. Ajoutes-en une ci-dessous.
             </div>
           ) : (
@@ -1039,9 +1461,9 @@ function PhaseBlock({
           )}
           <button onClick={onAddGroup}
                   className="w-full px-4 py-3 flex items-center justify-center gap-2 text-xs transition-colors"
-                  style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.15em', color: '#7a7566', borderTop: '1px dashed #d8d2bf', background: 'transparent' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#efeadb'; e.currentTarget.style.color = '#1c1c1c'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7a7566'; }}>
+                  style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.15em', color: 'var(--mute)', borderTop: '1px dashed var(--border)', background: 'transparent' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}>
             <Layers size={12} strokeWidth={1.5} /> AJOUTER UNE GRANDE TÂCHE
           </button>
         </div>
@@ -1059,57 +1481,73 @@ function GroupBlock({ group, hideChecked, isLast, onUpdate, onDelete, onToggleAl
   const [confirmDel, setConfirmDel] = useState(false);
   const [tempName, setTempName] = useState(group.name);
 
-  useEffect(() => { setTempName(group.name); }, [group.name]);
+  useEffect(() => {
+    if (!group.editing) setTempName(group.name);
+  }, [group.name, group.editing]);
 
   const toggleCollapsed = () => onUpdate(g => ({ ...g, collapsed: !g.collapsed }));
   const startEdit = () => onUpdate(g => ({ ...g, editing: true }));
-  const commitEdit = () => onUpdate(g => ({ ...g, editing: false, name: tempName.trim() || g.name }));
+  const commitEdit = () => onUpdate(g => ({ ...g, editing: false, name: tempName.trim() }));
+  const cancelEdit = () => {
+    setTempName(group.name);
+    onUpdate(g => ({ ...g, editing: false }));
+  };
+
+  const displayName = group.name && group.name.trim() ? group.name : '(sans titre)';
+  const isNameEmpty = !group.name || !group.name.trim();
 
   const allChecked = total > 0 && done === total;
   const visibleItems = hideChecked ? group.items.filter(i => !i.checked) : group.items;
 
   return (
-    <div id={'group-' + group.id} style={{ borderBottom: isLast ? 'none' : '1px solid #efeadb', scrollMarginTop: '80px' }}>
+    <div id={'group-' + group.id} style={{ borderBottom: isLast ? 'none' : '1px solid var(--surface-hover)', scrollMarginTop: '120px' }}>
       {/* HEADER */}
-      <div className="flex items-center pl-8" style={{ background: '#faf7ec', borderLeft: `3px solid ${tone.bar}` }}>
+      <div className="flex items-center pl-8" style={{ background: 'var(--surface-alt)', borderLeft: `3px solid ${tone.bar}` }}>
         <button onClick={toggleCollapsed} className="flex items-center gap-2 px-2 py-2.5 flex-1 text-left">
           {group.collapsed ? <ChevronRight size={14} strokeWidth={1.5} /> : <ChevronDown size={14} strokeWidth={1.5} />}
           {group.editing ? (
             <input autoFocus value={tempName}
                    onChange={e => setTempName(e.target.value)}
-                   onBlur={commitEdit}
+                   onFocus={e => e.target.select()}
+                   onBlur={cancelEdit}
                    onClick={e => e.stopPropagation()}
-                   onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') onUpdate(g => ({ ...g, editing: false })); }}
+                   onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit(); }}
                    className="px-2 py-1 text-sm outline-none"
-                   style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, background: '#fdfaf1', border: '1px solid #b8b19a', minWidth: '200px' }} />
+                   style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, background: 'var(--surface)', border: '1px solid var(--dash)', minWidth: '200px' }} />
           ) : (
-            <h3 style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: '14px', fontWeight: 600, color: '#1c1c1c' }} className="uppercase">
-              {group.name}
+            <h3 style={{
+              fontFamily: "'IBM Plex Sans', sans-serif",
+              fontSize: '14px',
+              fontWeight: 600,
+              color: isNameEmpty ? 'var(--mute-extra)' : 'var(--ink)',
+              fontStyle: isNameEmpty ? 'italic' : 'normal',
+            }} className="uppercase">
+              {displayName}
             </h3>
           )}
         </button>
 
         <div className="flex items-center gap-3 px-4">
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: '#8a8472' }} className="hidden sm:block">
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--mute-soft)' }} className="hidden sm:block">
             {done}/{total}
           </div>
           <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: '13px', color: tone.text, minWidth: '36px', textAlign: 'right' }}>
             {pct}%
           </div>
-          <div style={{ width: '50px', height: '3px', background: '#e4dfcf', position: 'relative' }}>
+          <div style={{ width: '50px', height: '3px', background: 'var(--border-soft)', position: 'relative' }}>
             <div style={{ width: `${pct}%`, height: '100%', background: tone.bar, transition: 'width 400ms ease' }} />
           </div>
           <div className="flex items-center gap-0.5">
             {total > 0 && (
-              <button onClick={() => onToggleAll(!allChecked)} className="p-1 hover:bg-stone-200 transition-colors"
+              <button onClick={() => onToggleAll(!allChecked)} className="p-1 hover-surface"
                       title={allChecked ? 'Tout décocher' : 'Tout cocher'}>
                 {allChecked ? <Square size={12} strokeWidth={1.5} /> : <CheckSquare size={12} strokeWidth={1.5} />}
               </button>
             )}
-            <button onClick={startEdit} className="p-1 hover:bg-stone-200 transition-colors" title="Renommer">
+            <button onClick={startEdit} className="p-1 hover-surface" title="Renommer">
               <Pencil size={11} strokeWidth={1.5} />
             </button>
-            <button onClick={() => setConfirmDel(true)} className="p-1 hover:bg-stone-200 transition-colors" title="Supprimer">
+            <button onClick={() => setConfirmDel(true)} className="p-1 hover-surface" title="Supprimer">
               <Trash2 size={11} strokeWidth={1.5} />
             </button>
           </div>
@@ -1117,13 +1555,13 @@ function GroupBlock({ group, hideChecked, isLast, onUpdate, onDelete, onToggleAl
       </div>
 
       {confirmDel && (
-        <div className="pl-10 pr-4 py-2 flex items-center justify-between gap-4 text-sm" style={{ background: '#f0e4d8', color: '#5a3a1e' }}>
+        <div className="pl-10 pr-4 py-2 flex items-center justify-between gap-4 text-sm" style={{ background: 'var(--danger-bg)', color: 'var(--danger-ink)' }}>
           <span>Supprimer « {group.name} » et tous ses items ?</span>
           <div className="flex gap-2">
             <button onClick={() => { onDelete(); setConfirmDel(false); }} className="px-2 py-1 text-xs"
-                    style={{ background: '#8a4b33', color: '#f6f3ea', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>SUPPRIMER</button>
+                    style={{ background: 'var(--danger)', color: 'var(--bg)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>SUPPRIMER</button>
             <button onClick={() => setConfirmDel(false)} className="px-2 py-1 text-xs"
-                    style={{ border: '1px solid #8a4b33', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>ANNULER</button>
+                    style={{ border: '1px solid var(--danger)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>ANNULER</button>
           </div>
         </div>
       )}
@@ -1131,9 +1569,9 @@ function GroupBlock({ group, hideChecked, isLast, onUpdate, onDelete, onToggleAl
       {!group.collapsed && (
         <div>
           {group.items.length === 0 ? (
-            <div className="px-16 py-4 text-sm" style={{ color: '#8a8472' }}>Aucun item.</div>
+            <div className="px-16 py-4 text-sm" style={{ color: 'var(--mute-soft)' }}>Aucun item.</div>
           ) : visibleItems.length === 0 ? (
-            <div className="px-16 py-4 text-sm" style={{ color: '#8a8472', fontStyle: 'italic' }}>
+            <div className="px-16 py-4 text-sm" style={{ color: 'var(--mute-soft)', fontStyle: 'italic' }}>
               Tous les items sont complétés (masqués).
             </div>
           ) : (
@@ -1149,9 +1587,9 @@ function GroupBlock({ group, hideChecked, isLast, onUpdate, onDelete, onToggleAl
           )}
           <button onClick={onAddItem}
                   className="w-full pl-16 pr-4 py-2 flex items-center gap-2 text-xs transition-colors"
-                  style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.12em', color: '#8a8472', background: 'transparent' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#efeadb'; e.currentTarget.style.color = '#1c1c1c'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#8a8472'; }}>
+                  style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.12em', color: 'var(--mute-soft)', background: 'transparent' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute-soft)'; }}>
             <Plus size={11} /> AJOUTER UN ITEM
           </button>
         </div>
@@ -1167,28 +1605,38 @@ function ItemRow({ item, isLast, onUpdate, onDelete }) {
   const [tempTitle, setTempTitle] = useState(item.title);
   const [confirmDel, setConfirmDel] = useState(false);
 
-  useEffect(() => { setTempTitle(item.title); }, [item.title]);
+  // Only sync from props when NOT editing (prevents live overwrite during typing).
+  useEffect(() => {
+    if (!item.editing) setTempTitle(item.title);
+  }, [item.title, item.editing]);
 
   const toggleExpanded = () => onUpdate(i => ({ ...i, expanded: !i.expanded }));
   const toggleChecked = () => onUpdate(i => ({ ...i, checked: !i.checked }));
   const startEdit = () => onUpdate(i => ({ ...i, editing: true }));
-  const commitEdit = () => onUpdate(i => ({ ...i, editing: false, title: tempTitle.trim() || i.title }));
+  // Allow empty titles — they render as italic "(sans titre)" placeholder.
+  const commitEdit = () => onUpdate(i => ({ ...i, editing: false, title: tempTitle.trim() }));
+  const cancelEdit = () => {
+    setTempTitle(item.title);
+    onUpdate(i => ({ ...i, editing: false }));
+  };
   const updateBlocks = (newBlocks) => onUpdate(i => ({ ...i, blocks: newBlocks }));
 
   const hasExplanation = (item.blocks || []).length > 0;
+  const displayTitle = item.title && item.title.trim() ? item.title : '(sans titre)';
+  const isTitleEmpty = !item.title || !item.title.trim();
 
   return (
-    <li style={{ borderBottom: isLast ? 'none' : '1px solid #f0ebd9' }}>
+    <li style={{ borderBottom: isLast ? 'none' : '1px solid var(--border-faint)' }}>
       <div className="flex items-start gap-3 pl-16 pr-4 py-2.5">
         <button onClick={toggleChecked}
                 className="mt-0.5 shrink-0 flex items-center justify-center transition-all"
                 style={{
                   width: '16px', height: '16px',
-                  background: item.checked ? '#1c1c1c' : 'transparent',
-                  border: item.checked ? '1px solid #1c1c1c' : '1px solid #8a8472',
+                  background: item.checked ? 'var(--ink)' : 'transparent',
+                  border: item.checked ? '1px solid var(--ink)' : '1px solid var(--mute-soft)',
                 }}
                 aria-label={item.checked ? 'Décocher' : 'Cocher'}>
-          {item.checked && <Check size={10} strokeWidth={2.5} style={{ color: '#f6f3ea' }} />}
+          {item.checked && <Check size={10} strokeWidth={2.5} style={{ color: 'var(--bg)' }} />}
         </button>
 
         <div className="flex-1 min-w-0">
@@ -1196,43 +1644,45 @@ function ItemRow({ item, isLast, onUpdate, onDelete }) {
             {item.editing ? (
               <input autoFocus value={tempTitle}
                      onChange={e => setTempTitle(e.target.value)}
-                     onBlur={commitEdit}
-                     onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') onUpdate(i => ({ ...i, editing: false })); }}
+                     onFocus={e => e.target.select()}
+                     onBlur={cancelEdit}
+                     onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit(); }}
                      className="px-2 py-1 text-sm outline-none flex-1"
-                     style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: '#f6f3ea', border: '1px solid #b8b19a', minWidth: '200px' }} />
+                     style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: 'var(--bg)', border: '1px solid var(--dash)', minWidth: '200px' }} />
             ) : (
               <button onClick={startEdit} className="text-left text-sm"
                       style={{
                         fontFamily: "'IBM Plex Sans', sans-serif",
-                        color: item.checked ? '#8a8472' : '#1c1c1c',
+                        color: isTitleEmpty ? 'var(--mute-extra)' : (item.checked ? 'var(--mute-soft)' : 'var(--ink)'),
+                        fontStyle: isTitleEmpty ? 'italic' : 'normal',
                         textDecoration: item.checked ? 'line-through' : 'none',
-                        textDecorationColor: '#b8b19a',
+                        textDecorationColor: 'var(--dash)',
                       }}
                       title="Cliquer pour éditer">
-                {item.title}
+                {displayTitle}
               </button>
             )}
             {hasExplanation && !item.expanded && (
-              <span style={{ color: '#7a8a3e' }} title="Contient une explication"><AlignLeft size={11} strokeWidth={1.5} /></span>
+              <span style={{ color: 'var(--success-soft)' }} title="Contient une explication"><AlignLeft size={11} strokeWidth={1.5} /></span>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
-          <button onClick={toggleExpanded} className="p-1 hover:bg-stone-100 transition-colors"
+          <button onClick={toggleExpanded} className="p-1 hover-surface"
                   title={item.expanded ? 'Fermer' : 'Ouvrir l\u2019explication'}
-                  style={{ color: hasExplanation ? '#4a6b3a' : '#8a8472' }}>
+                  style={{ color: hasExplanation ? 'var(--success)' : 'var(--mute-soft)' }}>
             {item.expanded ? <ChevronDown size={12} strokeWidth={1.5} /> : <ChevronRight size={12} strokeWidth={1.5} />}
           </button>
-          <button onClick={() => setConfirmDel(true)} className="p-1 hover:bg-stone-100 transition-colors" title="Supprimer">
+          <button onClick={() => setConfirmDel(true)} className="p-1 hover-surface" title="Supprimer">
             <Trash2 size={12} strokeWidth={1.5} />
           </button>
         </div>
       </div>
 
       {item.expanded && (
-        <div className="pl-24 pr-4 pb-3 pt-1" style={{ background: '#faf7ec' }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: '#8a8472', letterSpacing: '0.15em' }} className="uppercase mb-2">
+        <div className="pl-24 pr-4 pb-3 pt-1" style={{ background: 'var(--surface-alt)' }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--mute-soft)', letterSpacing: '0.15em' }} className="uppercase mb-2">
             Explication
           </div>
           <BlockEditor blocks={item.blocks || []} onChange={updateBlocks} />
@@ -1240,13 +1690,13 @@ function ItemRow({ item, isLast, onUpdate, onDelete }) {
       )}
 
       {confirmDel && (
-        <div className="pl-16 pr-4 py-2 flex items-center justify-between gap-4 text-sm" style={{ background: '#f0e4d8', color: '#5a3a1e' }}>
+        <div className="pl-16 pr-4 py-2 flex items-center justify-between gap-4 text-sm" style={{ background: 'var(--danger-bg)', color: 'var(--danger-ink)' }}>
           <span>Supprimer cet item ?</span>
           <div className="flex gap-2">
             <button onClick={() => { onDelete(); setConfirmDel(false); }} className="px-2 py-1 text-xs"
-                    style={{ background: '#8a4b33', color: '#f6f3ea', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>SUPPRIMER</button>
+                    style={{ background: 'var(--danger)', color: 'var(--bg)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>SUPPRIMER</button>
             <button onClick={() => setConfirmDel(false)} className="px-2 py-1 text-xs"
-                    style={{ border: '1px solid #8a4b33', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>ANNULER</button>
+                    style={{ border: '1px solid var(--danger)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.1em' }}>ANNULER</button>
           </div>
         </div>
       )}
@@ -1259,16 +1709,68 @@ function ItemRow({ item, isLast, onUpdate, onDelete }) {
 // ═════════════════════════════════════════════════════════
 function BlockEditor({ blocks, onChange }) {
   const fileRef = useRef(null);
+  const [uploadError, setUploadError] = useState('');
 
   const addTextBlock = () => onChange([...blocks, makeTextBlock('')]);
-  const handleImageUpload = (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+
+  // Downscale an image if it's wider than maxDim, returning a data URL.
+  const resizeImage = (file, maxDim = 1600, quality = 0.85) => new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => onChange([...blocks, makeImageBlock(reader.result)]);
-    reader.readAsDataURL(f);
+    reader.onerror = () => reject(new Error('Lecture du fichier échouée'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Image invalide ou corrompue'));
+      img.onload = () => {
+        const { width, height } = img;
+        if (width <= maxDim && height <= maxDim) {
+          resolve(reader.result);
+          return;
+        }
+        const scale = Math.min(maxDim / width, maxDim / height);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(width * scale);
+        canvas.height = Math.round(height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // JPEG is tolerant of data:url payload size; stay under quota.
+        const outputType = file.type === 'image/png' && width * height < 500000 ? 'image/png' : 'image/jpeg';
+        resolve(canvas.toDataURL(outputType, quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  const handleImageUpload = async (e) => {
+    const f = e.target.files?.[0];
     e.target.value = '';
+    setUploadError('');
+    if (!f) return;
+
+    // Validate MIME type
+    if (!f.type.startsWith('image/')) {
+      setUploadError('Fichier non-image. Seules les images sont acceptées.');
+      return;
+    }
+    // Block SVG (can embed scripts)
+    if (f.type === 'image/svg+xml') {
+      setUploadError('Les images SVG ne sont pas supportées. Utilise PNG ou JPEG.');
+      return;
+    }
+    // Hard size cap (10 MB raw)
+    if (f.size > 10 * 1024 * 1024) {
+      setUploadError('Image trop volumineuse (max 10 MB). Redimensionne-la avant.');
+      return;
+    }
+
+    try {
+      const dataUrl = await resizeImage(f);
+      onChange([...blocks, makeImageBlock(dataUrl)]);
+    } catch (err) {
+      setUploadError(err.message || 'Erreur de traitement de l\u2019image');
+    }
   };
+
   const updateBlock = (id, updates) => onChange(blocks.map(b => b.id === id ? { ...b, ...updates } : b));
   const deleteBlock = (id) => onChange(blocks.filter(b => b.id !== id));
   const moveBlock = (id, dir) => {
@@ -1284,7 +1786,7 @@ function BlockEditor({ blocks, onChange }) {
   return (
     <div>
       {blocks.length === 0 && (
-        <div className="mb-2 text-sm italic" style={{ color: '#8a8472' }}>
+        <div className="mb-2 text-sm italic" style={{ color: 'var(--mute-soft)' }}>
           Aucun bloc. Ajoute du texte ou une image ci-dessous.
         </div>
       )}
@@ -1298,22 +1800,27 @@ function BlockEditor({ blocks, onChange }) {
                   onMoveUp={() => moveBlock(block.id, -1)}
                   onMoveDown={() => moveBlock(block.id, 1)} />
       ))}
-      <div className="flex gap-2 mt-2">
+      <div className="flex gap-2 mt-2 flex-wrap items-center">
         <button onClick={addTextBlock}
                 className="px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors"
-                style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', color: '#7a7566', border: '1px dashed #b8b19a' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#efeadb'; e.currentTarget.style.color = '#1c1c1c'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7a7566'; }}>
+                style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', color: 'var(--mute)', border: '1px dashed var(--dash)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}>
           <AlignLeft size={11} strokeWidth={1.5} /> + TEXTE
         </button>
         <button onClick={() => fileRef.current?.click()}
                 className="px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors"
-                style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', color: '#7a7566', border: '1px dashed #b8b19a' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#efeadb'; e.currentTarget.style.color = '#1c1c1c'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7a7566'; }}>
+                style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.08em', color: 'var(--mute)', border: '1px dashed var(--dash)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--ink)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mute)'; }}>
           <ImageIcon size={11} strokeWidth={1.5} /> + IMAGE
         </button>
         <input type="file" accept="image/*" ref={fileRef} onChange={handleImageUpload} style={{ display: 'none' }} />
+        {uploadError && (
+          <span className="text-xs" style={{ color: 'var(--danger)', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+            {uploadError}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -1344,9 +1851,9 @@ function BlockRow({ block, isFirst, isLast, onUpdate, onDelete, onMoveUp, onMove
                   onChange={e => onUpdate({ content: e.target.value })}
                   placeholder="Note, détails de vérification, références au CNB…"
                   className="w-full px-3 py-2 text-sm outline-none resize-none overflow-hidden"
-                  style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: '#fdfaf1', border: '1px solid #d8d2bf', color: '#1c1c1c', minHeight: '40px' }} />
+                  style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink)', minHeight: '40px' }} />
       ) : (
-        <div style={{ border: '1px solid #d8d2bf', background: '#fdfaf1', padding: '4px', display: 'inline-block', maxWidth: '100%' }}>
+        <div style={{ border: '1px solid var(--border)', background: 'var(--surface)', padding: '4px', display: 'inline-block', maxWidth: '100%' }}>
           <img src={block.src} alt="Bloc image" style={{ display: 'block', maxWidth: '100%', maxHeight: '400px' }} />
         </div>
       )}
@@ -1355,19 +1862,19 @@ function BlockRow({ block, isFirst, isLast, onUpdate, onDelete, onMoveUp, onMove
       <div className="absolute top-1 right-0 flex flex-col gap-0.5 transition-opacity"
            style={{ opacity: hovered ? 1 : 0.25 }}>
         <button onClick={onMoveUp} disabled={isFirst}
-                className="p-1 disabled:opacity-30 hover:bg-stone-200"
-                style={{ background: '#fdfaf1', border: '1px solid #d8d2bf' }}
+                className="p-1 disabled:opacity-30 hover-surface"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                 title="Monter">
           <ArrowUp size={10} strokeWidth={1.5} />
         </button>
         <button onClick={onMoveDown} disabled={isLast}
-                className="p-1 disabled:opacity-30 hover:bg-stone-200"
-                style={{ background: '#fdfaf1', border: '1px solid #d8d2bf' }}
+                className="p-1 disabled:opacity-30 hover-surface"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
                 title="Descendre">
           <ArrowUp size={10} strokeWidth={1.5} style={{ transform: 'rotate(180deg)' }} />
         </button>
-        <button onClick={onDelete} className="p-1 hover:bg-red-50"
-                style={{ background: '#fdfaf1', border: '1px solid #d8d2bf', color: '#8a4b33' }}
+        <button onClick={onDelete} className="p-1 hover-danger"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--danger)' }}
                 title="Supprimer le bloc">
           <X size={10} strokeWidth={2} />
         </button>
