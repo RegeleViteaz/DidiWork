@@ -34,7 +34,7 @@ jobs:
         run: npm install
 
       - name: Build the Tauri app
-        run: npm run tauri:build
+        run: npm run tauri:build -- --bundles nsis
 
       - name: Rename installer
         run: |
@@ -82,7 +82,7 @@ jobs:
         run: npm install
 
       - name: Build the Tauri app
-        run: npm run tauri:build
+        run: npm run tauri:build -- --bundles dmg
 
       - name: Rename installer
         run: mv src-tauri/target/release/bundle/dmg/*.dmg src-tauri/target/release/bundle/dmg/Checklist_revision_mac.dmg

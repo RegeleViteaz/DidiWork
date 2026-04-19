@@ -29,7 +29,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": "all",
     "category": "Productivity",
     "shortDescription": "Checklist de révision pour projets d'architecture",
     "longDescription": "Application locale pour gérer des checklists de révision. Toutes les données restent sur la machine.",
